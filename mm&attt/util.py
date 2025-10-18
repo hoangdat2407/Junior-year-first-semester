@@ -56,14 +56,17 @@ def name_decrypt(m: int, k: int = 27) -> str:
 def egcd(a, b):
     if b == 0:
         return (1, 0, a)
-    x, y, g = egcd(b, a % b)
-    return (y, x - (a // b) * y, g)
+    x1, y1, g = egcd(b, a % b)
+    x, y = y1, x1 - (a // b) * y1
+    return (x, y, g)
 
 def modinv(a, m):
-    x, y, g = egcd(a % m, m)
+    a = a % m  # đảm bảo a không âm
+    x, y, g = egcd(a, m)
     if g != 1:
-        return None  
+        raise Exception(f"Không tồn tại nghịch đảo modular cho {a} mod {m}")
     return x % m
+
 #======================================================= Use miller-rabin to check prime number=====================================================================
 from random import randrange, getrandbits
 
@@ -109,3 +112,56 @@ def generate_prime_number(length=1024):
     while not is_prime(p, 128):     # lặp cho tới khi vượt qua kiểm tra Miller-Rabin
         p = generate_prime_candidate(length)
     return p
+#========================================
+def prime_factors(n):
+    factors = set()
+    i = 2
+    while i * i <= n:
+        while n % i == 0:
+            factors.add(i)
+            n //= i
+        i += 1
+    if n > 1:
+        factors.add(n)
+    return list(factors)
+
+def find_primitive_root(p):
+    phi = p - 1
+    factors = prime_factors(phi)
+    for g in range(2, p):
+        ok = True
+        for q in factors:
+            if pow(g, phi // q, p) == 1:
+                ok = False
+                break
+        if ok:
+            return g
+    return None
+#====================================================Eliptic point add and mul===========================================================
+def add_points(P, Q, a, p):
+    """Cộng hai điểm trên đường cong elliptic"""
+    if P == ("O", "O"):
+        return Q
+    if Q == ("O", "O"):
+        return P
+    x1, y1 = P
+    x2, y2 = Q
+
+    if x1 == x2 and (y1 + y2) % p == 0:
+        return ("O", "O")
+
+    if P == Q:
+        s = ((3 * x1 * x1 + a) * modinv(2 * y1, p)) % p
+    else:
+        s = ((y2 - y1) * modinv((x2 - x1) % p, p)) % p
+
+    x3 = (s * s - x1 - x2) % p
+    y3 = (s * (x1 - x3) - y1) % p
+    return (x3, y3)
+
+def mul_point(k, P, a, p):
+    """Nhân điểm kP"""
+    R = ("O", "O")
+    for _ in range(k):
+        R = add_points(R, P, a, p)
+    return R
